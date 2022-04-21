@@ -3,8 +3,8 @@ from tkinter import W
 from flask import flash, redirect, render_template, url_for, request
 from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.urls import url_parse
-from app import app
-from app.forms import LoginForm
+from app import app, db
+from app.forms import LoginForm, RegistrationForm
 from app.models import User
 
 @app.route('/')
@@ -18,7 +18,7 @@ def index():
         dict(author=dict(username='John'), body='My Interesting Blog'),
         dict(author=dict(username='Susan'), body='A Random Movie Review'),
     ]
-    return render_template('index.html', title='Home', user=user, posts=posts)
+    return render_template('index.html', title='Home', posts=posts)
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -38,7 +38,7 @@ def login():
         if not next_page or url_parse(next_page).netloc != '':
             next_page = url_for('index')
 
-        return redirect(url_for(next_page))
+        return redirect(url_for(next_page.removeprefix('/')))
 
     return render_template('login.html', title='Sign In', form=form)
 
@@ -47,3 +47,20 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('index'))
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        user = User(username=form.username.data, email=form.email.data)
+        user.set_password(form.password.data)
+        db.session.add(user)
+        db.session.commit()
+        flash(f'Thank you, {user.username}, for registering')
+        return redirect(url_for('index'))
+
+    return render_template('register.html', title='Register', form=form)
